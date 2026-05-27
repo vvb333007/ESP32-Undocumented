@@ -6,6 +6,8 @@
 //
 // A breakpoint can be set and intercepted in a similar way (see esp_cpu_set_breakpoint()).
 // DBREAK and IBREAK can be combined for controlled single-step execution.
+//
+// vvb@nym.hush.com
 
 #include <Arduino.h>
 
