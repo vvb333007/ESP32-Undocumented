@@ -1,0 +1,79 @@
+Hello,
+
+
+(c) Me and my AI generated slop again. About RSSI, SNR and ESP32.
+
+
+RSSI vs SNR
+------------
+
+Most esp32 hobbysts evaluate WiFi (or LoRa) signal quality in a very simple way: they look at RSSI.The larger the value (it is negative so closer to zero), the better the signal.
+
+Typically, the standard WiFi library is used for this. It can scan available networks and return their RSSI values. Based on this RSSI, the program decides whether it should connect to the network or not.
+
+However, this approach is not entirely correct.
+
+RSSI only shows the signal level, but says nothing about the noise level.In reality, the signal to noise ratio (SNR) is what determines the actual link quality.
+
+
+Measuring the RF noise floor on ESP32: API
+------------------------------------------
+
+Fortunately, on ESP32, ESP32-S3 and ESP32-S2 (other chips were not tested) there is an internal ROM function that measures the RF Noise Floor.
+
+The function is not declared in the official headers, but it is present in ROM/linker scripts and can be used.
+
+Few years later some Espressif chips got an software update which patched the abovementioned function. In particular it is patched on ESP32S3.
+
+
+
+```
+extern "C" {
+  int ram_check_noise_floor();  // Use of this one preferred if available
+  int rom_check_noise_floor();  // Original unpatched version. Use only if ram_ version is not available
+}
+```
+
+
+
+The return value is in 1/4 dBm units. (result must divided by 4)
+
+NOTE: If WiFi is not initialized these function may return -1024 or sometimes result in reboot.
+
+NOTE: if this function return a positive number (usually it is negative) the either negate it by yourself or just re-read noisefloor by calling the same function again.
+
+
+Typical values:  ROM function (RAM function)
+
+```
+HW noise floor is -384 (-390)
+HW noise floor is -384 (-367)
+HW noise floor is -384 (389)       <-- must be negated or reread
+HW noise floor is -384 (388)       <-- must be negated or reread
+```
+
+
+Link quality estimation
+-----------------------
+
+could be done like this (pseudo-code)
+
+```
+int rssi = get_my_link_rssi();        // read RSSI from WiFi library
+int nf = ram_check_noise_floor() / 4; // convert noise floor to dBm
+int snr = rssi - nf;                  // calculate signal-to-noise ratio
+```
+
+
+| SNR      | Link quality   |
++----------+----------------+
+| 25–40 dB | excellent      |
+| ~20 dB   | good           |
+| 10–15 dB | poor           |
+| <10 dB   | near the limit |
+
+
+This was tested on an ESP32-S3 using a simple WiFi example sketch from the WiFi library and several nearby access points.
+
+
+Hope someone can find it useful!
